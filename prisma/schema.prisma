@@ -17,6 +17,7 @@ model User {
   membershipLevel String          @default("NONE")
   totalSpent      Float           @default(0)
   cartItems       CartItem[]
+  orders          Order[]
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 }
@@ -62,6 +63,7 @@ model Product {
   categoryId  String
   category    Category   @relation(fields: [categoryId], references: [id])
   cartItems   CartItem[]
+  orderItems  OrderItem[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
@@ -80,4 +82,40 @@ model CartItem {
   updatedAt DateTime @updatedAt
 
   @@unique([userId, productId])
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id])
+  items         OrderItem[]
+  payments      Payment[]
+  originalTotal Float
+  discountRate  Float       @default(1)
+  total         Float
+  status        String      @default("PENDING")
+  address       String
+  phone         String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  price     Float
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  amount    Float
+  status    String   @default("PENDING")
+  method    String   @default("mock")
+  createdAt DateTime @default(now())
 }

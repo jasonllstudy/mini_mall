@@ -5,14 +5,12 @@ import { updateCartItem, removeCartItem } from "@/lib/actions/cart";
 
 interface CartActionsProps {
   cartItemId: string;
-  userId: string;
   quantity: number;
   stock: number;
 }
 
 export function CartActions({
   cartItemId,
-  userId,
   quantity,
   stock,
 }: CartActionsProps) {
@@ -23,12 +21,13 @@ export function CartActions({
   const handleUpdate = (newQty: number) => {
     if (newQty < 1 || newQty > stock) return;
     setError("");
+    const prevQty = currentQty; // 保存前一个状态用于回滚
     setCurrentQty(newQty);
     startTransition(async () => {
-      const result = await updateCartItem(userId, cartItemId, newQty);
+      const result = await updateCartItem(cartItemId, newQty);
       if (result.error) {
         setError(result.error);
-        setCurrentQty(quantity);
+        setCurrentQty(prevQty); // 回滚到前一个状态
       }
     });
   };
@@ -36,7 +35,10 @@ export function CartActions({
   const handleRemove = () => {
     if (!confirm("确定要删除该商品吗？")) return;
     startTransition(async () => {
-      await removeCartItem(userId, cartItemId);
+      const result = await removeCartItem(cartItemId);
+      if (result.error) {
+        setError(result.error);
+      }
     });
   };
 

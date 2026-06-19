@@ -12,8 +12,7 @@ export default async function CartPage() {
     redirect("/login?callbackUrl=/cart");
   }
 
-  const userId = session.user.id;
-  const cartItems = await getCart(userId);
+  const cartItems = await getCart();
 
   const total = cartItems.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
@@ -73,7 +72,6 @@ export default async function CartPage() {
                   <div className="flex items-center justify-between">
                     <CartActions
                       cartItemId={item.id}
-                      userId={userId}
                       quantity={item.quantity}
                       stock={item.product.stock}
                     />
@@ -88,10 +86,12 @@ export default async function CartPage() {
 
           <div className="rounded-xl bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
-              <form action={async () => {
-                "use server";
-                await clearCart(userId);
-              }}>
+              <form
+                action={async () => {
+                  "use server";
+                  await clearCart();
+                }}
+              >
                 <button
                   type="submit"
                   className="text-sm text-gray-500 hover:text-red-600"
@@ -108,12 +108,12 @@ export default async function CartPage() {
                 </p>
               </div>
             </div>
-            <button
-              disabled
-              className="mt-4 w-full rounded-xl bg-black py-3 text-base font-medium text-white disabled:bg-gray-300"
+            <Link
+              href="/checkout"
+              className="mt-4 block w-full rounded-xl bg-black py-3 text-center text-base font-medium text-white hover:bg-gray-800"
             >
-              去结算（开发中）
-            </button>
+              去结算
+            </Link>
           </div>
         </>
       )}

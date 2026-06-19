@@ -9,9 +9,7 @@ export default async function ShopLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
-  const cartCount = session?.user?.id
-    ? await getCartItemCount(session.user.id)
-    : 0;
+  const cartCount = await getCartItemCount();
 
   return (
     <div className="min-h-screen bg-gray-50">

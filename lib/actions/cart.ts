@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import type { Product } from "@prisma/client";
 
 export interface CartItemWithProduct {
@@ -13,9 +14,13 @@ export interface CartItemWithProduct {
 }
 
 /**
- * 获取当前用户购物车列表
+ * 获取当前登录用户购物车列表
  */
-export async function getCart(userId: string): Promise<CartItemWithProduct[]> {
+export async function getCart(): Promise<CartItemWithProduct[]> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return [];
+
   return prisma.cartItem.findMany({
     where: { userId },
     include: { product: true },
@@ -24,9 +29,13 @@ export async function getCart(userId: string): Promise<CartItemWithProduct[]> {
 }
 
 /**
- * 获取购物车商品总数
+ * 获取当前登录用户购物车商品总数
  */
-export async function getCartItemCount(userId: string): Promise<number> {
+export async function getCartItemCount(): Promise<number> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return 0;
+
   const result = await prisma.cartItem.aggregate({
     where: { userId },
     _sum: { quantity: true },
@@ -36,13 +45,15 @@ export async function getCartItemCount(userId: string): Promise<number> {
 
 /**
  * 添加商品到购物车
- * 如果商品已在购物车中，更新数量
+ * 如果商品已在购物车中，累加数量
  */
-export async function addToCart(
-  userId: string,
-  productId: string,
-  quantity: number = 1
-) {
+export async function addToCart(productId: string, quantity: number = 1) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return { error: "请先登录" };
+  }
+
   if (quantity < 1) {
     return { error: "数量不能小于 1" };
   }
@@ -57,7 +68,7 @@ export async function addToCart(
     return { error: "商品不存在" };
   }
 
-  // 检查购物车中是否已有该商品
+  // 查询当前购物车数量以校验库存
   const existing = await prisma.cartItem.findUnique({
     where: { userId_productId: { userId, productId } },
   });
@@ -68,16 +79,12 @@ export async function addToCart(
     return { error: `库存不足，当前库存 ${product.stock} 件` };
   }
 
-  if (existing) {
-    await prisma.cartItem.update({
-      where: { id: existing.id },
-      data: { quantity: targetQuantity },
-    });
-  } else {
-    await prisma.cartItem.create({
-      data: { userId, productId, quantity },
-    });
-  }
+  // 使用 upsert 避免竞态条件
+  await prisma.cartItem.upsert({
+    where: { userId_productId: { userId, productId } },
+    update: { quantity: targetQuantity },
+    create: { userId, productId, quantity },
+  });
 
   revalidatePath("/cart");
   return { success: true };
@@ -86,11 +93,13 @@ export async function addToCart(
 /**
  * 更新购物车商品数量
  */
-export async function updateCartItem(
-  userId: string,
-  cartItemId: string,
-  quantity: number
-) {
+export async function updateCartItem(cartItemId: string, quantity: number) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return { error: "请先登录" };
+  }
+
   if (quantity < 1) {
     return { error: "数量不能小于 1" };
   }
@@ -120,18 +129,20 @@ export async function updateCartItem(
 /**
  * 删除购物车商品
  */
-export async function removeCartItem(userId: string, cartItemId: string) {
-  const cartItem = await prisma.cartItem.findFirst({
+export async function removeCartItem(cartItemId: string) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return { error: "请先登录" };
+  }
+
+  const { count } = await prisma.cartItem.deleteMany({
     where: { id: cartItemId, userId },
   });
 
-  if (!cartItem) {
+  if (count === 0) {
     return { error: "购物车商品不存在" };
   }
-
-  await prisma.cartItem.delete({
-    where: { id: cartItemId },
-  });
 
   revalidatePath("/cart");
   return { success: true };
@@ -140,7 +151,13 @@ export async function removeCartItem(userId: string, cartItemId: string) {
 /**
  * 清空购物车
  */
-export async function clearCart(userId: string) {
+export async function clearCart() {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    return { error: "请先登录" };
+  }
+
   await prisma.cartItem.deleteMany({
     where: { userId },
   });

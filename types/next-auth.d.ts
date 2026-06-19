@@ -9,12 +9,14 @@ declare module "@auth/core/types" {
       id: string;
       role: string;
       permissions: string[];
+      membershipLevel?: string;
     } & DefaultSession["user"];
   }
 
   interface User {
     role?: string;
     permissions?: string[];
+    membershipLevel?: string;
   }
 }
 
@@ -24,12 +26,14 @@ declare module "next-auth" {
       id: string;
       role: string;
       permissions: string[];
+      membershipLevel?: string;
     } & DefaultSession["user"];
   }
 
   interface User {
     role?: string;
     permissions?: string[];
+    membershipLevel?: string;
   }
 }
 

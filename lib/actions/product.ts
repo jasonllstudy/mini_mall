@@ -1,6 +1,9 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 
 export interface GetProductsParams {
   page?: number;
@@ -76,4 +79,82 @@ export async function getProductById(id: string) {
     where: { id },
     include: { category: true },
   });
+}
+
+/**
+ * 创建商品（需要 product:write 权限）
+ */
+export async function createProduct(data: {
+  name: string;
+  description?: string;
+  price: number;
+  stock: number;
+  image?: string;
+  categoryId: string;
+}) {
+  const session = await auth();
+  if (!session?.user?.id || !hasPermission(session.user.permissions ?? [], "product:write")) {
+    return { error: "无权限" };
+  }
+
+  const product = await prisma.product.create({
+    data: {
+      name: data.name,
+      description: data.description || null,
+      price: data.price,
+      stock: data.stock,
+      image: data.image || null,
+      categoryId: data.categoryId,
+    },
+  });
+
+  revalidatePath("/admin/products");
+  revalidatePath("/");
+  return { success: true, product };
+}
+
+/**
+ * 更新商品（需要 product:write 权限）
+ */
+export async function updateProduct(
+  id: string,
+  data: {
+    name?: string;
+    description?: string;
+    price?: number;
+    stock?: number;
+    image?: string;
+    categoryId?: string;
+  }
+) {
+  const session = await auth();
+  if (!session?.user?.id || !hasPermission(session.user.permissions ?? [], "product:write")) {
+    return { error: "无权限" };
+  }
+
+  const product = await prisma.product.update({
+    where: { id },
+    data,
+  });
+
+  revalidatePath("/admin/products");
+  revalidatePath("/");
+  revalidatePath(`/products/${id}`);
+  return { success: true, product };
+}
+
+/**
+ * 删除商品（需要 product:write 权限）
+ */
+export async function deleteProduct(id: string) {
+  const session = await auth();
+  if (!session?.user?.id || !hasPermission(session.user.permissions ?? [], "product:write")) {
+    return { error: "无权限" };
+  }
+
+  await prisma.product.delete({ where: { id } });
+
+  revalidatePath("/admin/products");
+  revalidatePath("/");
+  return { success: true };
 }

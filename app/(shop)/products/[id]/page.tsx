@@ -2,7 +2,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/actions/product";
-import { auth } from "@/lib/auth";
 import { AddToCartButton } from "@/components/shop/add-to-cart-button";
 
 interface ProductPageProps {
@@ -12,7 +11,6 @@ interface ProductPageProps {
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params;
   const product = await getProductById(id);
-  const session = await auth();
 
   if (!product) {
     notFound();
@@ -79,7 +77,6 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
           {/* 加入购物车按钮 */}
           <AddToCartButton
-            userId={session?.user?.id}
             productId={product.id}
             stock={product.stock}
           />

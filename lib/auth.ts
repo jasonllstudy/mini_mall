@@ -10,12 +10,14 @@ declare module "next-auth" {
       id: string;
       role: string;
       permissions: string[];
+      membershipLevel?: string;
     } & DefaultSession["user"];
   }
 
   interface User {
     role?: string;
     permissions?: string[];
+    membershipLevel?: string;
   }
 }
 
@@ -105,6 +107,7 @@ export const {
           email: user.email,
           name: user.name,
           role: user.role.name,
+          membershipLevel: user.membershipLevel,
           permissions,
         };
       },
@@ -119,6 +122,7 @@ export const {
       if (user) {
         token.role = user.role;
         token.permissions = user.permissions;
+        token.membershipLevel = user.membershipLevel;
       }
       return token;
     },
@@ -129,6 +133,7 @@ export const {
       if (token.sub) u.id = token.sub;
       if (token.role) u.role = token.role;
       if (token.permissions) u.permissions = token.permissions;
+      if (token.membershipLevel) u.membershipLevel = token.membershipLevel;
       return session;
     },
   },

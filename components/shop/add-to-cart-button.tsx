@@ -5,31 +5,25 @@ import { useRouter } from "next/navigation";
 import { addToCart } from "@/lib/actions/cart";
 
 interface AddToCartButtonProps {
-  userId?: string;
   productId: string;
   stock: number;
 }
 
-export function AddToCartButton({
-  userId,
-  productId,
-  stock,
-}: AddToCartButtonProps) {
+export function AddToCartButton({ productId, stock }: AddToCartButtonProps) {
   const router = useRouter();
   const [quantity, setQuantity] = useState(1);
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
 
   const handleAdd = () => {
-    if (!userId) {
-      router.push("/login?callbackUrl=/products/" + productId);
-      return;
-    }
-
     setMessage("");
     startTransition(async () => {
-      const result = await addToCart(userId, productId, quantity);
+      const result = await addToCart(productId, quantity);
       if (result.error) {
+        if (result.error === "请先登录") {
+          router.push("/login?callbackUrl=/products/" + productId);
+          return;
+        }
         setMessage(result.error);
       } else {
         setMessage("已加入购物车");
@@ -78,13 +72,15 @@ export function AddToCartButton({
         disabled={isPending}
         className="w-full rounded-xl bg-black py-3.5 text-base font-medium text-white transition-colors hover:bg-gray-800 disabled:bg-gray-400"
       >
-        {isPending ? "处理中..." : userId ? "加入购物车" : "登录后购买"}
+        {isPending ? "处理中..." : "加入购物车"}
       </button>
 
       {message && (
         <p
           className={`text-center text-sm ${
-            message.includes("已加入") ? "text-green-600" : "text-red-600"
+            message === "已加入购物车"
+              ? "text-green-600"
+              : "text-red-600"
           }`}
         >
           {message}
