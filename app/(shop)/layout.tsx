@@ -43,7 +43,18 @@ export default async function ShopLayout({
             >
               我的订单
             </Link>
-            <UserNav user={session?.user} />
+            <UserNav
+              user={
+                session?.user
+                  ? {
+                      name: session.user.name,
+                      email: session.user.email,
+                      membershipLevel: session.user.membershipLevel,
+                      totalSpent: session.user.totalSpent,
+                    }
+                  : null
+              }
+            />
           </nav>
         </div>
       </header>

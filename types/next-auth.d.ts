@@ -10,6 +10,7 @@ declare module "@auth/core/types" {
       role: string;
       permissions: string[];
       membershipLevel?: string;
+      totalSpent?: number;
     } & DefaultSession["user"];
   }
 
@@ -17,6 +18,7 @@ declare module "@auth/core/types" {
     role?: string;
     permissions?: string[];
     membershipLevel?: string;
+    totalSpent?: number;
   }
 }
 
@@ -27,6 +29,7 @@ declare module "next-auth" {
       role: string;
       permissions: string[];
       membershipLevel?: string;
+      totalSpent?: number;
     } & DefaultSession["user"];
   }
 
@@ -34,6 +37,7 @@ declare module "next-auth" {
     role?: string;
     permissions?: string[];
     membershipLevel?: string;
+    totalSpent?: number;
   }
 }
 

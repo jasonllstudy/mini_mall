@@ -11,6 +11,7 @@ declare module "next-auth" {
       role: string;
       permissions: string[];
       membershipLevel?: string;
+      totalSpent?: number;
     } & DefaultSession["user"];
   }
 
@@ -18,6 +19,7 @@ declare module "next-auth" {
     role?: string;
     permissions?: string[];
     membershipLevel?: string;
+    totalSpent?: number;
   }
 }
 
@@ -108,6 +110,7 @@ export const {
           name: user.name,
           role: user.role.name,
           membershipLevel: user.membershipLevel,
+          totalSpent: Number(user.totalSpent),
           permissions,
         };
       },
@@ -123,6 +126,7 @@ export const {
         token.role = user.role;
         token.permissions = user.permissions;
         token.membershipLevel = user.membershipLevel;
+        token.totalSpent = user.totalSpent;
       }
       return token;
     },
@@ -134,6 +138,7 @@ export const {
       if (token.role) u.role = token.role;
       if (token.permissions) u.permissions = token.permissions;
       if (token.membershipLevel) u.membershipLevel = token.membershipLevel;
+      if (token.totalSpent) u.totalSpent = token.totalSpent;
       return session;
     },
   },

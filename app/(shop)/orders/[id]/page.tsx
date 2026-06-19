@@ -4,13 +4,17 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getOrderById } from "@/lib/actions/order";
 import { mockPay } from "@/lib/actions/payment";
+import { getMembershipLabel } from "@/lib/membership";
 
 interface OrderPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ upgraded?: string }>;
 }
 
-export default async function OrderPage({ params }: OrderPageProps) {
+export default async function OrderPage({ params, searchParams }: OrderPageProps) {
   const { id } = await params;
+  const search = await searchParams;
+  const upgraded = search.upgraded;
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -47,6 +51,20 @@ export default async function OrderPage({ params }: OrderPageProps) {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
+      {/* 升级提示 */}
+      {upgraded && (
+        <div className="rounded-xl bg-gradient-to-r from-yellow-400 to-amber-500 p-6 text-center text-white shadow-lg">
+          <div className="text-3xl mb-2">🎉</div>
+          <h2 className="text-xl font-bold mb-1">恭喜升级！</h2>
+          <p className="text-white/90">
+            您已升级为 <span className="font-bold">{getMembershipLabel(upgraded)}</span>
+          </p>
+          <p className="text-sm text-white/80 mt-1">
+            下次购物可享受更多优惠
+          </p>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">订单详情</h1>
         <Link
