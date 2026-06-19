@@ -2,6 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/actions/product";
+import { auth } from "@/lib/auth";
+import { AddToCartButton } from "@/components/shop/add-to-cart-button";
 
 interface ProductPageProps {
   params: Promise<{ id: string }>;
@@ -10,6 +12,7 @@ interface ProductPageProps {
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params;
   const product = await getProductById(id);
+  const session = await auth();
 
   if (!product) {
     notFound();
@@ -74,13 +77,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
             </span>
           </div>
 
-          {/* 加入购物车按钮（后续对接 Server Action） */}
-          <button
-            disabled={product.stock <= 0}
-            className="w-full rounded-xl bg-black py-3.5 text-base font-medium text-white transition-colors hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
-          >
-            {product.stock > 0 ? "加入购物车" : "暂时缺货"}
-          </button>
+          {/* 加入购物车按钮 */}
+          <AddToCartButton
+            userId={session?.user?.id}
+            productId={product.id}
+            stock={product.stock}
+          />
         </div>
       </div>
     </div>

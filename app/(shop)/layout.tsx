@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+import { getCartItemCount } from "@/lib/actions/cart";
 import { UserNav } from "@/components/shop/user-nav";
 
 export default async function ShopLayout({
@@ -8,6 +9,9 @@ export default async function ShopLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
+  const cartCount = session?.user?.id
+    ? await getCartItemCount(session.user.id)
+    : 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -26,9 +30,14 @@ export default async function ShopLayout({
             </Link>
             <Link
               href="/cart"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900"
+              className="relative text-sm font-medium text-gray-600 hover:text-gray-900"
             >
               购物车
+              {cartCount > 0 && (
+                <span className="absolute -right-3 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[10px] text-white">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
             </Link>
             <Link
               href="/orders"
