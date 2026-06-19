@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { getAllCategoriesWithCount } from "@/lib/actions/category";
+import { errorResponse } from "@/lib/api-response";
 
 /**
  * 获取全部分类，包含每个分类下的商品数量
@@ -7,12 +7,9 @@ import { getAllCategoriesWithCount } from "@/lib/actions/category";
 export async function GET() {
   try {
     const categories = await getAllCategoriesWithCount();
-    return NextResponse.json(categories);
+    return Response.json(categories);
   } catch (error) {
     console.error("获取全部分类失败:", error);
-    return NextResponse.json(
-      { error: "获取全部分类失败" },
-      { status: 500 }
-    );
+    return errorResponse("获取全部分类失败，请稍后重试", 500);
   }
 }

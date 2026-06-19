@@ -31,7 +31,7 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const result = await register({ email, password, name });
+    const result = await register({ email, password, confirmPassword, name });
 
     setLoading(false);
 

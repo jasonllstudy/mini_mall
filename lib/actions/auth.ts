@@ -2,6 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { registerSchema } from "@/lib/validations/auth";
 
 /**
  * 用户注册
@@ -10,11 +11,21 @@ import { prisma } from "@/lib/prisma";
 export async function register(data: {
   email: string;
   password: string;
+  confirmPassword: string;
   name?: string;
 }) {
+  // Zod 验证
+  const parseResult = registerSchema.safeParse(data);
+  if (!parseResult.success) {
+    const messages = parseResult.error.issues.map((e) => e.message).join("；");
+    return { error: messages };
+  }
+
+  const { email, password, name } = parseResult.data;
+
   // 检查邮箱是否已存在
   const existing = await prisma.user.findUnique({
-    where: { email: data.email },
+    where: { email },
   });
 
   if (existing) {
@@ -31,13 +42,13 @@ export async function register(data: {
   }
 
   // 加密密码
-  const hashedPassword = await bcrypt.hash(data.password, 10);
+  const hashedPassword = await bcrypt.hash(password, 10);
 
   // 创建用户
   await prisma.user.create({
     data: {
-      email: data.email,
-      name: data.name || data.email.split("@")[0],
+      email,
+      name: name || email.split("@")[0],
       password: hashedPassword,
       roleId: operatorRole.id,
     },

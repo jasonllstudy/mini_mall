@@ -84,7 +84,9 @@ async function main() {
   });
 
   // 创建管理员账号
-  const hashedPassword = await bcrypt.hash("admin123", 10);
+  // 优先从环境变量读取密码，不存在则生成随机密码
+  const adminPassword = process.env.ADMIN_PASSWORD || crypto.randomUUID().slice(0, 12);
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
   await prisma.user.create({
     data: {
       email: "admin@example.com",
@@ -94,6 +96,9 @@ async function main() {
     },
   });
 
+  if (!process.env.ADMIN_PASSWORD) {
+    console.log("⚠️ 未设置 ADMIN_PASSWORD 环境变量，已生成随机密码：" + adminPassword);
+  }
   console.log("角色、权限和管理员账号初始化完成");
 }
 
