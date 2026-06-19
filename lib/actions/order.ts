@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 import { getDiscountRate } from "@/lib/membership";
 
 /**
@@ -145,4 +146,158 @@ export async function getOrderById(id: string) {
       payments: true,
     },
   });
+}
+
+// ==================== 管理员接口 ====================
+
+export interface AdminGetOrdersParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+  q?: string;
+}
+
+export interface AdminOrdersResult {
+  orders: {
+    id: string;
+    user: { name: string | null; email: string };
+    originalTotal: number;
+    discountRate: number;
+    total: number;
+    status: string;
+    address: string;
+    phone: string;
+    createdAt: Date;
+    itemCount: number;
+  }[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+/**
+ * 管理员获取所有订单（需要 order:read 权限）
+ */
+export async function adminGetOrders(params: AdminGetOrdersParams = {}): Promise<AdminOrdersResult> {
+  const session = await auth();
+  if (!session?.user?.id || !hasPermission(session.user.permissions ?? [], "order:read")) {
+    return { orders: [], total: 0, page: 1, limit: 10, totalPages: 0 };
+  }
+
+  const page = Math.max(1, params.page ?? 1);
+  const limit = Math.max(1, params.limit ?? 10);
+  const skip = (page - 1) * limit;
+
+  const where: {
+    status?: string;
+    user?: { email?: { contains: string } };
+  } = {};
+
+  if (params.status && params.status !== "ALL") {
+    where.status = params.status;
+  }
+
+  if (params.q && params.q.trim()) {
+    where.user = { email: { contains: params.q.trim() } };
+  }
+
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        user: { select: { name: true, email: true } },
+        _count: { select: { items: true } },
+      },
+    }),
+    prisma.order.count({ where }),
+  ]);
+
+  return {
+    orders: orders.map((o) => ({
+      id: o.id,
+      user: o.user,
+      originalTotal: Number(o.originalTotal),
+      discountRate: Number(o.discountRate),
+      total: Number(o.total),
+      status: o.status,
+      address: o.address,
+      phone: o.phone,
+      createdAt: o.createdAt,
+      itemCount: o._count.items,
+    })),
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+
+/**
+ * 管理员获取订单详情（需要 order:read 权限）
+ */
+export async function adminGetOrderById(id: string) {
+  const session = await auth();
+  if (!session?.user?.id || !hasPermission(session.user.permissions ?? [], "order:read")) {
+    return null;
+  }
+
+  return prisma.order.findUnique({
+    where: { id },
+    include: {
+      user: { select: { name: true, email: true } },
+      items: { include: { product: true } },
+      payments: true,
+    },
+  });
+}
+
+/**
+ * 更新订单状态（需要 order:write 权限）
+ */
+export async function updateOrderStatus(id: string, status: string) {
+  const session = await auth();
+  if (!session?.user?.id || !hasPermission(session.user.permissions ?? [], "order:write")) {
+    return { error: "无权限" };
+  }
+
+  const validStatuses = ["PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELLED"];
+  if (!validStatuses.includes(status)) {
+    return { error: "无效的订单状态" };
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id },
+    select: { status: true },
+  });
+
+  if (!order) {
+    return { error: "订单不存在" };
+  }
+
+  // 状态流转规则检查
+  const statusFlow: Record<string, string[]> = {
+    PENDING: ["PAID", "CANCELLED"],
+    PAID: ["SHIPPED", "CANCELLED"],
+    SHIPPED: ["DELIVERED"],
+    DELIVERED: [],
+    CANCELLED: [],
+  };
+
+  const allowedNext = statusFlow[order.status] ?? [];
+  if (!allowedNext.includes(status) && order.status !== status) {
+    return { error: `不能从 ${order.status} 变更为 ${status}` };
+  }
+
+  await prisma.order.update({
+    where: { id },
+    data: { status },
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath(`/orders/${id}`);
+  return { success: true };
 }
