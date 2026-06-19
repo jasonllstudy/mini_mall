@@ -20,10 +20,19 @@ export async function createOrder(data: {
     return { error: "请先登录" };
   }
 
-  // 获取购物车商品
+  // 获取购物车商品（只加载必要字段）
   const cartItems = await prisma.cartItem.findMany({
     where: { userId },
-    include: { product: true },
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          stock: true,
+        },
+      },
+    },
   });
 
   if (cartItems.length === 0) {
@@ -55,58 +64,66 @@ export async function createOrder(data: {
   const total = originalTotal * discountRate;
 
   // 事务：创建订单 + 扣库存 + 清空购物车
-  const order = await prisma.$transaction(async (tx) => {
-    // 先锁定库存（行锁），并再次校验库存
-    for (const item of cartItems) {
-      const product = await tx.product.findUnique({
-        where: { id: item.productId },
-        select: { stock: true, name: true },
-      });
+  try {
+    const order = await prisma.$transaction(async (tx) => {
+      // 先锁定库存（行锁），并再次校验库存
+      for (const item of cartItems) {
+        const product = await tx.product.findUnique({
+          where: { id: item.productId },
+          select: { stock: true, name: true },
+        });
 
-      if (!product || product.stock < item.quantity) {
-        throw new Error(`商品「${product?.name ?? "未知"}」库存不足，当前库存 ${product?.stock ?? 0} 件`);
+        if (!product || product.stock < item.quantity) {
+          throw new Error(`INVENTORY_ERROR|商品「${product?.name ?? "未知"}」库存不足，当前库存 ${product?.stock ?? 0} 件`);
+        }
       }
-    }
 
-    // 创建订单
-    const newOrder = await tx.order.create({
-      data: {
-        userId,
-        originalTotal,
-        discountRate,
-        total,
-        status: "PENDING",
-        address: data.address,
-        phone: data.phone,
-        items: {
-          create: cartItems.map((item) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.product.price,
-          })),
+      // 创建订单
+      const newOrder = await tx.order.create({
+        data: {
+          userId,
+          originalTotal,
+          discountRate,
+          total,
+          status: "PENDING",
+          address: data.address,
+          phone: data.phone,
+          items: {
+            create: cartItems.map((item) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.product.price,
+            })),
+          },
         },
-      },
-    });
-
-    // 扣减库存
-    for (const item of cartItems) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { stock: { decrement: item.quantity } },
       });
-    }
 
-    // 清空购物车
-    await tx.cartItem.deleteMany({
-      where: { userId },
+      // 扣减库存
+      for (const item of cartItems) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { decrement: item.quantity } },
+        });
+      }
+
+      // 清空购物车
+      await tx.cartItem.deleteMany({
+        where: { userId },
+      });
+
+      return newOrder;
     });
 
-    return newOrder;
-  });
-
-  revalidatePath("/orders");
-  revalidatePath("/cart");
-  return { success: true, orderId: order.id };
+    revalidatePath("/orders");
+    revalidatePath("/cart");
+    return { success: true, orderId: order.id };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("INVENTORY_ERROR|")) {
+      return { error: error.message.replace("INVENTORY_ERROR|", "") };
+    }
+    console.error("创建订单失败:", error);
+    return { error: "创建订单失败，请稍后重试" };
+  }
 }
 
 /**

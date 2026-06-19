@@ -29,7 +29,7 @@ export async function mockPay(orderId: string) {
     return { error: "订单状态不允许支付" };
   }
 
-  // 验证订单金额正确性（防篡改）
+  // 验证订单金额正确性（防篡改）- 在事务外预检查
   const originalTotal = order.items.reduce(
     (sum, item) => sum + Number(item.price) * item.quantity,
     0
@@ -48,6 +48,21 @@ export async function mockPay(orderId: string) {
 
   // 事务：完成支付 + 更新订单 + 更新用户累计消费
   await prisma.$transaction(async (tx) => {
+    // 再次校验订单状态（防止并发支付）
+    const currentOrder = await tx.order.findUnique({
+      where: { id: orderId },
+      select: { status: true, total: true },
+    });
+
+    if (!currentOrder || currentOrder.status !== "PENDING") {
+      throw new Error("订单状态已变更");
+    }
+
+    // 再次校验金额（事务内最终校验）
+    if (Math.abs(Number(currentOrder.total) - expectedTotal) > 0.01) {
+      throw new Error("订单金额校验失败");
+    }
+
     // 创建支付记录
     await tx.payment.create({
       data: {
