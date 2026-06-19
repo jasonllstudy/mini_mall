@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { computeMembershipLevel } from "@/lib/membership";
+import { computeMembershipLevel, getDiscountRate } from "@/lib/membership";
 
 /**
  * 模拟支付
@@ -18,6 +18,7 @@ export async function mockPay(orderId: string) {
 
   const order = await prisma.order.findFirst({
     where: { id: orderId, userId },
+    include: { items: { include: { product: true } } },
   });
 
   if (!order) {
@@ -26,6 +27,23 @@ export async function mockPay(orderId: string) {
 
   if (order.status !== "PENDING") {
     return { error: "订单状态不允许支付" };
+  }
+
+  // 验证订单金额正确性（防篡改）
+  const originalTotal = order.items.reduce(
+    (sum, item) => sum + Number(item.price) * item.quantity,
+    0
+  );
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { membershipLevel: true },
+  });
+  const discountRate = getDiscountRate(user?.membershipLevel ?? "NONE");
+  const expectedTotal = originalTotal * discountRate;
+
+  // 允许 0.01 元浮点误差
+  if (Math.abs(Number(order.total) - expectedTotal) > 0.01) {
+    return { error: "订单金额异常，请重新下单" };
   }
 
   // 事务：完成支付 + 更新订单 + 更新用户累计消费
@@ -62,7 +80,7 @@ export async function mockPay(orderId: string) {
   let upgraded = false;
   let newLevel = "";
   if (updatedUser) {
-    const computed = computeMembershipLevel(updatedUser.totalSpent);
+    const computed = computeMembershipLevel(Number(updatedUser.totalSpent));
     if (computed !== updatedUser.membershipLevel) {
       await prisma.user.update({
         where: { id: userId },

@@ -4,9 +4,15 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getCart } from "@/lib/actions/cart";
 import { createOrder } from "@/lib/actions/order";
-import { getDiscountRate } from "@/lib/membership";
+import { getDiscountRate, getMembershipLabel } from "@/lib/membership";
 
-export default async function CheckoutPage() {
+interface CheckoutPageProps {
+  searchParams: Promise<{
+    error?: string;
+  }>;
+}
+
+export default async function CheckoutPage({ searchParams }: CheckoutPageProps) {
   const session = await auth();
 
   if (!session?.user?.id) {
@@ -19,6 +25,9 @@ export default async function CheckoutPage() {
     redirect("/cart");
   }
 
+  const params = await searchParams;
+  const error = params.error;
+
   const originalTotal = cartItems.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
     0
@@ -29,15 +38,22 @@ export default async function CheckoutPage() {
 
   const handleCreateOrder = async (formData: FormData) => {
     "use server";
-    const address = formData.get("address") as string;
-    const phone = formData.get("phone") as string;
+    const address = (formData.get("address") as string)?.trim();
+    const phone = (formData.get("phone") as string)?.trim();
 
-    if (!address?.trim() || !phone?.trim()) {
-      // 简单校验，实际应使用 Zod
-      return;
+    // 表单验证
+    if (!address || address.length < 5) {
+      redirect("/checkout?error=" + encodeURIComponent("收货地址至少需要5个字符"));
+    }
+
+    if (!phone || !/^1[3-9]\d{9}$/.test(phone)) {
+      redirect("/checkout?error=" + encodeURIComponent("请输入有效的11位手机号码"));
     }
 
     const result = await createOrder({ address, phone });
+    if (result.error) {
+      redirect("/checkout?error=" + encodeURIComponent(result.error));
+    }
     if (result.success) {
       redirect(`/orders/${result.orderId}`);
     }
@@ -46,6 +62,11 @@ export default async function CheckoutPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">确认订单</h1>
+
+      {/* 错误提示 */}
+      {error && (
+        <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600">{error}</div>
+      )}
 
       {/* 商品摘要 */}
       <div className="space-y-3">
@@ -119,7 +140,7 @@ export default async function CheckoutPage() {
           </div>
           {discountRate < 1 && (
             <div className="flex justify-between text-sm text-green-600">
-              <span>会员折扣（{session.user.membershipLevel}）</span>
+              <span>会员折扣（{getMembershipLabel(session.user.membershipLevel ?? "NONE")}）</span>
               <span>-{((1 - discountRate) * 100).toFixed(0)}%</span>
             </div>
           )}

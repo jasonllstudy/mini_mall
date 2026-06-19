@@ -55,6 +55,18 @@ export async function createOrder(data: {
 
   // 事务：创建订单 + 扣库存 + 清空购物车
   const order = await prisma.$transaction(async (tx) => {
+    // 先锁定库存（行锁），并再次校验库存
+    for (const item of cartItems) {
+      const product = await tx.product.findUnique({
+        where: { id: item.productId },
+        select: { stock: true, name: true },
+      });
+
+      if (!product || product.stock < item.quantity) {
+        throw new Error(`商品「${product?.name ?? "未知"}」库存不足，当前库存 ${product?.stock ?? 0} 件`);
+      }
+    }
+
     // 创建订单
     const newOrder = await tx.order.create({
       data: {

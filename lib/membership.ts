@@ -51,3 +51,11 @@ export function getNextLevelInfo(totalSpent: number) {
     gap: next.threshold - totalSpent,
   };
 }
+
+/**
+ * 获取会员等级中文标签
+ */
+export function getMembershipLabel(level: string): string {
+  const rule = MEMBERSHIP_RULES.find((r) => r.level === level);
+  return rule?.label ?? "普通会员";
+}
