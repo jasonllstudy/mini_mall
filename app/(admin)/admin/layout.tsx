@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { hasPermission } from "@/lib/permissions";
+import { LogoutButton } from "@/components/admin/logout-button";
 
 const navItems = [
   { href: "/admin/dashboard", label: "数据概览", permission: "user:read" },
@@ -52,6 +53,7 @@ export default async function AdminLayout({
           >
             返回前台
           </Link>
+          <LogoutButton />
         </nav>
       </aside>
 

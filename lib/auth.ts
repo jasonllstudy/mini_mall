@@ -137,8 +137,25 @@ export const {
       if (token.sub) u.id = token.sub;
       if (token.role) u.role = token.role;
       if (token.permissions) u.permissions = token.permissions;
-      if (token.membershipLevel) u.membershipLevel = token.membershipLevel;
-      if (token.totalSpent) u.totalSpent = token.totalSpent;
+
+      // 每次获取session时从数据库读取最新的会员等级和累计消费（支持支付后实时更新）
+      if (token.sub) {
+        try {
+          const latestUser = await prisma.user.findUnique({
+            where: { id: token.sub },
+            select: { membershipLevel: true, totalSpent: true },
+          });
+          if (latestUser) {
+            u.membershipLevel = latestUser.membershipLevel;
+            u.totalSpent = Number(latestUser.totalSpent);
+          }
+        } catch {
+          // 如果查询失败，使用token中的值
+          if (token.membershipLevel) u.membershipLevel = token.membershipLevel;
+          if (token.totalSpent) u.totalSpent = token.totalSpent;
+        }
+      }
+
       return session;
     },
   },
