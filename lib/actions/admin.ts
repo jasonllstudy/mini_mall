@@ -1,13 +1,23 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { hasPermission } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
 
 /**
- * 将指定用户设置为管理员
- * 如果不存在则创建
+ * 将指定用户设置为管理员（需要 super_admin 权限）
  */
 export async function setUserAsAdmin(email: string) {
+  // 权限检查
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "请先登录" };
+  }
+  if (!hasPermission(session.user.permissions ?? [], "user:write")) {
+    return { error: "无权限执行此操作" };
+  }
+
   try {
     // 查找管理员角色
     const adminRole = await prisma.role.findFirst({
@@ -52,9 +62,23 @@ export async function setUserAsAdmin(email: string) {
 }
 
 /**
- * 修改用户密码
+ * 修改用户密码（只能修改自己的密码，或需要 user:write 权限）
  */
 export async function changeUserPassword(email: string, newPassword: string) {
+  // 权限检查
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { error: "请先登录" };
+  }
+
+  // 只能修改自己的密码，除非有 user:write 权限
+  const isSelf = session.user.email === email;
+  const canManageUsers = hasPermission(session.user.permissions ?? [], "user:write");
+
+  if (!isSelf && !canManageUsers) {
+    return { error: "只能修改自己的密码" };
+  }
+
   try {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 

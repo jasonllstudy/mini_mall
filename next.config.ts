@@ -5,14 +5,21 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "**",
+        hostname: "image.baidu.com",
       },
       {
-        protocol: "http",
-        hostname: "**",
+        protocol: "https",
+        hostname: "*.alicdn.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.jd.com",
+      },
+      {
+        protocol: "https",
+        hostname: "*.tmall.com",
       },
     ],
-    unoptimized: true,
   },
 };
 
