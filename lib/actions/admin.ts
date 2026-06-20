@@ -6,7 +6,7 @@ import { hasPermission } from "@/lib/permissions";
 import bcrypt from "bcryptjs";
 
 /**
- * 将指定用户设置为管理员（需要 super_admin 权限）
+ * 将指定用户设置为管理员（需要 user:write 权限）
  */
 export async function setUserAsAdmin(email: string) {
   // 权限检查
@@ -77,6 +77,20 @@ export async function changeUserPassword(email: string, newPassword: string) {
 
   if (!isSelf && !canManageUsers) {
     return { error: "只能修改自己的密码" };
+  }
+
+  // 密码强度验证
+  if (newPassword.length < 8) {
+    return { error: "密码长度至少8位" };
+  }
+  if (!/[A-Z]/.test(newPassword)) {
+    return { error: "密码必须包含至少一个大写字母" };
+  }
+  if (!/[a-z]/.test(newPassword)) {
+    return { error: "密码必须包含至少一个小写字母" };
+  }
+  if (!/[0-9]/.test(newPassword)) {
+    return { error: "密码必须包含至少一个数字" };
   }
 
   try {

@@ -9,15 +9,19 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
-        hostname: "*.alicdn.com",
+        hostname: "img.alicdn.com",
       },
       {
         protocol: "https",
-        hostname: "*.jd.com",
+        hostname: "img10.360buyimg.com",
       },
       {
         protocol: "https",
-        hostname: "*.tmall.com",
+        hostname: "img14.360buyimg.com",
+      },
+      {
+        protocol: "https",
+        hostname: "gw.alicdn.com",
       },
     ],
   },

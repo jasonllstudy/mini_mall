@@ -20,6 +20,22 @@ export async function createOrder(data: {
     return { error: "请先登录" };
   }
 
+  // 验证收货地址长度
+  if (!data.address || data.address.length < 5) {
+    return { error: "收货地址至少需要5个字符" };
+  }
+  if (data.address.length > 200) {
+    return { error: "收货地址不能超过200个字符" };
+  }
+
+  // 验证手机号格式和长度
+  if (!data.phone || data.phone.length < 8) {
+    return { error: "联系电话格式不正确" };
+  }
+  if (data.phone.length > 20) {
+    return { error: "联系电话不能超过20个字符" };
+  }
+
   // 获取购物车商品（只加载必要字段）
   const cartItems = await prisma.cartItem.findMany({
     where: { userId },
